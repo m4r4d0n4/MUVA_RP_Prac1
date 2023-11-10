@@ -115,6 +115,12 @@ def model()->Pipeline:
     return GradientBoostingClassifier(max_depth=max_depth,        
                                             n_estimators=n_estimators,  
                                             learning_rate=learning_rate)
+def adaboost()->Pipeline:
+    n_estimators = 50
+    learning_rate= .1
+    tree_clf = DecisionTreeClassifier(max_depth=1)
+    return AdaBoostClassifier(tree_clf, n_estimators=n_estimators, algorithm="SAMME.R", learning_rate=learning_rate)
+
 #Ejecución del código
 if __name__ == "__main__":
    
@@ -133,14 +139,21 @@ if __name__ == "__main__":
     pipeline = Pipeline([  
                         ("normalize", filteringFeatures())
                         ,("add_features",addingFeatures())
-                        ,("model",model())
+                        ,("model",adaboost())
                         ])
 
     # Definimos el espacio de búsqueda de hiperparámetros
-    param_grid = {
+
+    #Gradient Boosting
+    '''param_grid = {
         'model__max_depth': [1,2],  
         'model__n_estimators': [10],  
         'model__learning_rate': [ 0.01,0.1,1 ]  
+    }'''
+    #AdaBoost
+    param_grid = { 
+        'model__n_estimators': [5,50],  #5 y 0.1  
+        'model__learning_rate': [ 0.01,0.1 ]  
     }
     # Crear un objeto KFold para especificar la estrategia K-fold
     #kf = KFold(n_splits=5, shuffle=True, random_state=random_state)  # Puedes ajustar n_splits según tu preferencia
