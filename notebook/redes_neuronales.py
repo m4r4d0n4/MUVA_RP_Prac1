@@ -2,7 +2,7 @@
 import random
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from sklearn.model_selection import GridSearchCV, train_test_split, cross_validate
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.feature_selection import mutual_info_classif
@@ -62,7 +62,7 @@ def describe_pipeline(pipeline):
     return '\n'.join(descriptions)
 
 
-def guardar_en_csv(texto, params ,accuracy):
+def guardar_en_csv(texto, params,accuracy):
     # Obtener la fecha y hora actual
     fecha_actual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     # Eliminar saltos de línea del texto
@@ -97,8 +97,8 @@ def filteringFeatures()->Pipeline:
     #Normalizado y demás
     filters_features = []
     #Normalizado
-    minmax = MinMaxScaler().set_output(transform='pandas')
-    filters_features.append( ('minmax', minmax) )
+    minmax = RobustScaler().set_output(transform='pandas')
+    filters_features.append( ('robust_scaler', minmax) )
     return Pipeline(filters_features)
 
 def addingFeatures()->Pipeline:
@@ -108,13 +108,15 @@ def addingFeatures()->Pipeline:
     more_features.append( ('addPolyFeat', polyfeat) )
     return Pipeline(more_features)
 def model()->Pipeline:
-    max_depth = 1
-    n_estimators = 100
-    learning_rate= 1
-
-    return GradientBoostingClassifier(max_depth=max_depth,        
-                                            n_estimators=n_estimators,  
-                                            learning_rate=learning_rate)
+    hidden_layer_sizes=[16,8,4,2]
+    activation='tanh'        #<- ‘identity’, ‘logistic’, ‘tanh’, ‘relu’
+    learning_rate='adaptive' #<- 'constant’, ‘invscaling’, ‘adaptive’
+    learning_rate_init=0.001
+    max_iter=1000
+    solver = 'adam'
+    return MLPClassifier(hidden_layer_sizes=hidden_layer_sizes,
+                      activation=activation,solver=solver,
+                      learning_rate_init=learning_rate_init, max_iter=max_iter)
 def adaboost()->Pipeline:
     n_estimators = 50
     learning_rate= .1
@@ -139,7 +141,7 @@ if __name__ == "__main__":
     pipeline = Pipeline([  
                         ("normalize", filteringFeatures())
                         ,("add_features",addingFeatures())
-                        ,("model",adaboost())
+                        ,("model",model())
                         ])
 
     # Definimos el espacio de búsqueda de hiperparámetros
@@ -151,9 +153,15 @@ if __name__ == "__main__":
         'model__learning_rate': [ 0.01,0.1,1 ]  
     }'''
     #AdaBoost
+    '''param_grid = { 
+        'model__activation': ['identity', 'logistic', 'tanh', 'relu'],
+        'model__solver': ['lbfgs', 'sgd', 'adam'],
+        'model__learning_rate': [ 'constant', 'invscaling', 'adaptive']
+    }'''
     param_grid = { 
-        'model__n_estimators': [50,100,200],  #5 y 0.1  
-        'model__learning_rate': [ 0.01,0.1,1 ]  
+        'model__activation': ['identity'],
+        'model__solver': ['lbfgs'],
+        'model__max_iter': [1000,10000]
     }
     # Crear un objeto KFold para especificar la estrategia K-fold
     kf = KFold(n_splits=5, shuffle=True, random_state=random_state)  # Puedes ajustar n_splits según tu preferencia
