@@ -1,5 +1,6 @@
 
 
+import argparse
 import random
 import joblib
 import numpy as np
@@ -105,12 +106,15 @@ def lecturaDatos(path_train:str, path_tags:str):
     #Leemos el CSV de entrenamiento
     X_init = pd.read_csv(path_train, sep = ',', decimal = '.', index_col=0)
 
-    #Leemos el CSV de entrenamiento
-    Y_train_init = pd.read_csv(path_tags, sep = ',', decimal = '.', index_col=0)
 
     #Quitamos la columna de´nombre de la foto que no nos da ninguna info
     X_train_init = X_init.iloc[:, 1:]
-    return X_train_init,Y_train_init
+    return X_train_init
+def lecturaTags(path_tags:str):
+    
+    #Leemos el CSV de entrenamiento
+    return pd.read_csv(path_tags, sep = ',', decimal = '.', index_col=0)
+
 # Clase para seleccionar automáticamente el número óptimo de componentes con PCA
 class OptimalPCA(TransformerMixin, BaseEstimator):
     '''
@@ -138,27 +142,35 @@ class OptimalPCA(TransformerMixin, BaseEstimator):
 
     def transform(self, X):
         return self.pca.transform(X)[:, :self.n_components_]
-def filteringFeatures()->Pipeline:
-    #Normalizado y demás
+    
+
+
+def normalizing_and_reducing()->Pipeline:
+    '''
+    Normali
+    '''
     filters_features = []
-    #Normalizado
+    # Normalizado
     minmax = MinMaxScaler().set_output(transform='pandas')
     filters_features.append( ('minmax', minmax) )
+
+
     var_th = 0.01
     var_thrs = VarianceThreshold(var_th).set_output(transform='pandas')
     filters_features.append(('var_thrs', var_thrs))
     
     return Pipeline(filters_features)
+
 # Función para aumentar caracteristicas
 def feature_augmentation(X):
     """
-    Realiza aumento de características y aplica el logaritmo a un conjunto de datos.
+    Realiza aumento de características
 
-    Parameters:
+    Parametros:
     - data: numpy array o pandas DataFrame, el conjunto de datos original.
 
-    Returns:
-    - augmented_data: numpy array o pandas DataFrame, el conjunto de datos aumentado con logaritmo aplicado.
+    Devuelve:
+    - augmented_data: numpy array o pandas DataFrame, el conjunto de datos aumentado.
     """
     # Aplicar logaritmo a las características
     log_transformed_data = np.log1p(X)
@@ -168,10 +180,11 @@ def feature_augmentation(X):
     #cubed_data = np.power(X, 3)
     #sqrt_data = np.sqrt(np.abs(X))
 
-    #Binneamos
+    # Binneamos
     # Aplicar agrupamiento a cada característica
     #binned_data = np.apply_along_axis(lambda x: np.digitize(x, np.linspace(min(x), max(x), num=5)), axis=0, arr=X)
-    #Derivadas
+
+    # Derivadas
     #diff_data = np.diff(X, axis=1)
     #derivative_data = np.gradient(X, axis=1)
 
@@ -186,11 +199,11 @@ def addingFeatures()->Pipeline:
     polyfeat = PolynomialFeatures().set_output(transform="pandas")
     more_features.append( ('addPolyFeat', polyfeat) )
     
-    #Aumentamos caracteristicas
-    #feature_transformer = FunctionTransformer(feature_augmentation)
+    #Aumentamos caracteristicas (esta comentado porque todos los aumetnados de caracteristicas que hemos probado, salvo el Poly nos reducen la precisión)
+    #feature_transformer = FunctionTransformer(feature_augmentation) 
     #more_features.append( ('feature_augmentation', feature_transformer) )
     
-    # Definir el imputador KNN
+    # Definir el imputador KNN (regulariza los datos mucho y no es deseable, solo lo usamos si nos da NaN algun aumentado de caracteristicas)
     #imputer = KNNImputer()
     #more_features.append(('nan_imputer',imputer))
 
@@ -200,81 +213,61 @@ def addingFeatures()->Pipeline:
 def reduccionCaracteristicas():
     reducir = []
     pca = OptimalPCA()
-    reducir.append( ('OptimalPCA', pca) )
+    reducir.append( ('OptimalPCA', pca) ) #OptimalPCA nos busca cuantas componentes necesitamos de acuerdo a una varianza_objetivo
     return Pipeline(reducir)
-
-def svc()->Pipeline:
-    kernel = 'rbf' #<- 'linear', 'poly', 'rbf', 'sigmoid'
-    C = 0.01
-    degree = 3
-    return SVC(kernel=kernel, probability=True,degree=degree, C=C,cache_size=4000)
-    #voting_system = 'soft'
-    #return VotingClassifier( estimators=[('svm', svc_clf),  ('ada', adaboost())], voting=voting_system)
-
-
-def nusvc()->Pipeline:
-    kernel = 'rbf' #<- 'linear', 'poly', 'rbf', 'sigmoid'
-    nu = 1
-    degree = 3
-    return NuSVC(kernel=kernel, degree=degree, nu=nu,cache_size=4000)
-    #voting_system = 'soft'
-    #return VotingClassifier( estimators=[('svm', svc_clf),  ('ada', adaboost())], voting=voting_system)
-
-def adaboost()->Pipeline:
-    n_estimators = 50
-    learning_rate= .1
-    tree_clf = DecisionTreeClassifier(max_depth=1)
-    return AdaBoostClassifier(tree_clf, n_estimators=n_estimators, algorithm="SAMME.R", learning_rate=learning_rate)
-
 
 def grid_testing(pipeline,params,X,y,X_test,y_test):
 
     # Crear un objeto KFold para especificar la estrategia K-fold
-    kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=1337)  # Puedes ajustar n_splits según tu preferencia
+    kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=1337)  # Puedes ajustar n_splits según lo que necesitemos
 
     # Creamos un objeto GridSearchCV para el pipeline
-
-    grid_search = GridSearchCV(pipeline, params, cv=kf,verbose=3 ,n_jobs=1) #usar cv=kf , con njobs paralelizamos las operaciones
-    # Realizamos la búsqueda de hiperparámetros utilizando los datos de entrenamiento
+    grid_search = GridSearchCV(pipeline, params, cv=kf,verbose=3 ,n_jobs=1) #usar cv=kf , con njobs paralelizamos las operaciones, usamos 1 aunque se puede aumentar
+    
+    # Realizamos la búsqueda de hiperparámetros utilizando los datos de entrenamiento, los hiperparámetros se encuentran en params dentro del objeto gridsearch
     grid_search.fit(X, y.values.ravel())
-    #grid_search_ada.fit(X_train, y_train.values.ravel())
     
     # Mostramos los mejores hiperparámetros encontrados
     print("Mejores hiperparámetros encontrados:")
     print(grid_search.best_params_)
 
+    # Evaluamos nuestro modelo con el conjunto de prueba que hemos apartado al principio 
     accuracy = grid_search.best_estimator_.score(X_test, y_test)
-    print(f"Precisión del modelo con los mejores hiperparámetros voting 1 en datos de prueba: {accuracy:.5f}")
 
-    joblib.dump(grid_search.best_estimator_, 'aaa.joblib')
+    print(f"Precisión del modelo con los mejores hiperparámetros en datos de prueba: {accuracy:.5f}")
+
+    #Guardamos el modelo para no perder el entrenamiento
+    joblib.dump(grid_search.best_estimator_, 'modelo_guardado.joblib')
+
     try:
         guardar_en_csv(describe_pipeline(pipeline),grid_search.best_params_,accuracy=grid_search.best_estimator_.score(X_test, y_test))
     except:
-        guardar_en_csv("voting",grid_search.best_params_,accuracy=grid_search.best_estimator_.score(X_test, y_test))
+        guardar_en_csv("error_descripcion_pipeline",grid_search.best_params_,accuracy=grid_search.best_estimator_.score(X_test, y_test))
     
+    #Devolvemos el modelo entrenado
 
-
+    return grid_search.best_estimator_
 
 
 #Ejecución del código
 if __name__ == "__main__":
    
     #Lectura de los datos
-    X1,y = lecturaDatos("../traintabs/traintab01.csv","../traintabs/train_label.csv")
+    X1 = lecturaDatos("../traintabs/traintab01.csv")
     
-    X2,y = lecturaDatos("../traintabs/traintab02.csv","../traintabs/train_label.csv")
+    X2 = lecturaDatos("../traintabs/traintab02.csv")
 
-    X3,y = lecturaDatos("../traintabs/traintab03.csv","../traintabs/train_label.csv")
+    X3 = lecturaDatos("../traintabs/traintab03.csv")
 
-    X4,y = lecturaDatos("../traintabs/traintab04.csv","../traintabs/train_label.csv")
+    X4 = lecturaDatos("../traintabs/traintab04.csv")
 
-    X5,y = lecturaDatos("../traintabs/traintab05.csv","../traintabs/train_label.csv")
+    X5 = lecturaDatos("../traintabs/traintab05.csv")
 
-    X6,y = lecturaDatos("../traintabs/traintab06.csv","../traintabs/train_label.csv")
+    X6 = lecturaDatos("../traintabs/traintab06.csv")
 
-    X7,y = lecturaDatos("../traintabs/traintab07.csv","../traintabs/train_label.csv")
+    X7 = lecturaDatos("../traintabs/traintab07.csv")
 
-    X8,y = lecturaDatos("../traintabs/traintab08.csv","../traintabs/train_label.csv")
+    X8 = lecturaDatos("../traintabs/traintab08.csv")
 
     X = pd.concat([X1,X2,X3,X4,X5,X6,X7,X8],axis=1)
 
@@ -283,77 +276,106 @@ if __name__ == "__main__":
     test_size = 0.2
     # Semilla
     random_state = 1338
-
+    y = lecturaTags("../traintabs/train_label.csv")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
 
 
     ###CLASIFICADOR ELEGIDO
-    # Definir el modelo de votación
-    voting_clf = VotingClassifier(
-        estimators=[
-                    ('dt', DecisionTreeClassifier(random_state=1337)), 
-                    ('svm', SVC(probability=True, random_state=1337)) 
-                    #('knn', KNeighborsClassifier()),
-                    #('lda', LinearDiscriminantAnalysis()),
-                    #('lr', LogisticRegression(random_state=1337))
-                    ],
-        voting='soft'
-    )
-    # Crear el BaggingClassifier con SVC como base_estimator
-    bagging_classifier = BaggingClassifier(estimator=SVC(cache_size=4000,probability=True, random_state=1337), n_estimators=10, random_state=1337)
+    # Opciones
+    option = 'bagging' # 'voting','svm','adaboost','rf'
+
+    if option == 'voting':
+        # Definir el modelo de votación
+        clf = VotingClassifier(
+            estimators=[
+                        ('dt', DecisionTreeClassifier(random_state=1337)), 
+                        ('svm', SVC(probability=True, random_state=1337)) 
+                        #('knn', KNeighborsClassifier()),
+                        #('lda', LinearDiscriminantAnalysis()),
+                        #('lr', LogisticRegression(random_state=1337))
+                        ],
+            voting='soft'
+        )
+        ###HIPERPARAMETROS
+        params_grid = { 
+            # Hiperparámetros SVC
+            'model__svm__kernel': ['rbf'],  #5 y 0.1  
+            'model__svm__C' : [0,1,1,10],
+            # Hiperparámetros DT
+            'model__dt__min_samples_split': [2,4],
+            'model__dt__min_samples_leaf': [1,2],
+            # Hiperparámetros Voting
+            'model__voting': ['soft','hard'],
+         }
+
+    elif option == 'bagging':
+        # Crear el BaggingClassifier con SVC estimator
+        clf = BaggingClassifier(estimator=SVC(cache_size=4000,probability=True, random_state=1337), n_estimators=10, random_state=1337)
+
+        ####HIPERPARÁMETROS
+        params_grid = {
+            # Hiperparámetros SVC
+            'model__estimator__kernel': ['rbf'],  # 'linear', 'poly' 
+            'model__estimator__C' : [0.01,0.5,1,10], #Ajustamos cuanto afecta el Slack
+            # Hiperparámetros Bagging
+            'model__n_estimators': [20,50,100] #Cuantos estimadores creamos
+
+        }
+    elif option == 'SVM':
+        #Clasificador SVM, seleccionamos el kernel al ajustar hiperparametros
+        clf = SVC(cache_size=4000,probability=True, random_state=1337)
+
+        ####HIPERPARÁMETROS
+        params_grid = { 
+            # Hiperparámetros SVC
+            'model__kernel': ['linear'],  #5 y 0.1  
+            'model__C' : [0.05],  #5 y 0.1  
+        }
+    elif option=='rf':
+        clf = RandomForestClassifier()
+        ###HIPERPARAMETROS
+        params_grid = {
+            'model__n_estimators': [200],
+            'model__max_depth': [None],
+            'model__min_samples_split': [5],
+            'model__min_samples_leaf': [ 2]
+        }
+    elif option == 'adaboost':
+        clf = AdaBoostClassifier()
+        ###HIPERPARAMETROS
+        params = { 
+            'model __estimator': [DecisionTreeClassifier(max_depth=1),SVC(cache_size=4000,probability=True, random_state=1337)],
+            'model__n_estimators': [50,100,500],
+            'model__learning_rate':[0.1,0.01,1],
+        }
 
 
     #####CREACIÓN DEL PIPELINE
-    pipeline_voting = Pipeline([  
-                        ("normalize", filteringFeatures())
-                        ,("add_features",addingFeatures())
-                        ,("reducir_dimension",reduccionCaracteristicas())
-                        ,("model",voting_clf)
+    pipeline = Pipeline([  
+                         ("normalize", normalizing_and_reducing()) #Normalizamos y filtramos por la varianza
+                        ,("add_features",addingFeatures()) #Hacemos aumentado de datos
+                        ,("reducir_dimension",reduccionCaracteristicas()) #Usamos PCA para reducir la dimensionalidad
+                        ,("model",clf) #Usamos el clasificador seleccionado anteriormente
                         ])
-    #####CREACIÓN DEL PIPELINE
-    pipeline_bagging = Pipeline([  
-                        ("normalize", filteringFeatures())
-                        ,("add_features",addingFeatures())
-                        ,("reducir_dimension",reduccionCaracteristicas())
-                        ,("model",bagging_classifier)
-                        ])
-    pipeline_svm = Pipeline([  
-                        ("normalize", filteringFeatures())
-                        ,("add_features",addingFeatures())
-                        ,("reducir_dimension",reduccionCaracteristicas())
-                        ,("model",SVC(cache_size=4000,probability=True, random_state=1337))
-                        ])
-    ####HIPERPARÁMETROS
-    voting_params_grid = { 
-        # Hiperparámetros SVC
-        'model__svm__kernel': ['rbf'],  #5 y 0.1  
-        'model__svm__C' : [10],
-        # Hiperparámetros DT
-        'model__dt__min_samples_split': [2,4],
-        'model__dt__min_samples_leaf': [1,2],
-        # Hiperparámetros Voting
-        'model__voting': ['soft','hard'],
+    
+    modelo = grid_testing(pipeline,params_grid,X_train,y_train,X_test,y_test)
 
-    }
 
-    ####HIPERPARÁMETROS
-    bagging_params_grid = { 
-        # PCA
+    #GENERAMOS EL FICHERO COMPETICION DE METEMOS LOS PATHS
+    data = [lecturaDatos(i) for i in ["../testtabs/testtab01.csv",
+                                                     "../testtabs/testtab02.csv",
+                                                     "../testtabs/testtab03.csv",
+                                                     "../testtabs/testtab04.csv",
+                                                     "../testtabs/testtab05.csv",
+                                                     "../testtabs/testtab06.csv",
+                                                     "../testtabs/testtab07.csv",
+                                                     "../testtabs/testtab08.csv"
+                                                     ]
+            ]
+    TEST = pd.concat(data,axis=1)
+    y_pred = modelo.preditc(TEST)
+    np.savetxt('Competicion1.txt', y_pred, fmt='%i', delimiter=',')
 
-        # Hiperparámetros SVC
-        'model__estimator__kernel': ['rbf'],  #5 y 0.1  
-        'model__estimator__C' : [10],  #5 y 0.1  
-        # Hiperparámetros Voting
-        'model__n_estimators': [100]
 
-    }
-    svm_params_grid = { 
-        # Hiperparámetros SVC
-        'model__kernel': ['linear'],  #5 y 0.1  
-        'model__C' : [0.05],  #5 y 0.1  
 
-    }
 
-    #grid_testing(pipeline_voting,voting_params_grid,X_train,y_train,X_test,y_test)
-    grid_testing(pipeline_bagging,bagging_params_grid,X_train,y_train,X_test,y_test)
-    #grid_testing(pipeline_svm,svm_params_grid,X_train,y_train,X_test,y_test)
