@@ -241,7 +241,7 @@ def addingFeatures()->Pipeline:
     polyfeat = PolynomialFeatures().set_output(transform="pandas")
     more_features.append( ('addPolyFeat', polyfeat) )
     
-    #Aumentamos caracteristicas (esta comentado porque todos los aumetnados de caracteristicas que hemos probado, salvo el Poly, nos reducen la accuracy)
+    #Aumentamos caracteristicas (esta comentado porque a pesar de obtener mejores resultados en la mayoria de casos el tiempo computacional para el entrenamiento aumenta en un 150% aproximadamente y la mejora de resultados no es significativa (entorno a 0.5 de accuracy))
     '''
     log_aumentation_pipeline = FunctionTransformer(log_aumentation) 
     more_features.append( ('log_augmentation', log_aumentation_pipeline) )
@@ -254,7 +254,7 @@ def addingFeatures()->Pipeline:
 
     bin_aumentation_pipeline = FunctionTransformer(bin_aumentation) 
     more_features.append( ('bin_augmentation', bin_aumentation_pipeline) )
-'''
+    '''
 
     #Operaciones en paralelo
     return FeatureUnion(more_features)
