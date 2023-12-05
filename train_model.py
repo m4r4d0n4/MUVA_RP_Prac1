@@ -3,42 +3,26 @@
 import argparse
 import random
 import joblib
-import numpy as np
-import pandas as pd
-
-
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neighbors import KNeighborsClassifier
-
-from sklearn.preprocessing import MinMaxScaler, PowerTransformer
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split, cross_validate
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.feature_selection import mutual_info_classif
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import KFold
-from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
+from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, RandomForestClassifier, VotingClassifier
 from sklearn.metrics import confusion_matrix, precision_recall_curve, roc_curve, accuracy_score
 from sklearn.pipeline import FeatureUnion, Pipeline
-from sklearn.ensemble import RandomForestClassifier
 import numpy as np
-from sklearn.neural_network import MLPClassifier
-from sklearn.mixture import GaussianMixture
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
-from sklearn.manifold import LocallyLinearEmbedding, Isomap, TSNE
 from sklearn.pipeline import FeatureUnion, Pipeline
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.linear_model import LinearRegression, LogisticRegression, Perceptron
 from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.naive_bayes import GaussianNB
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer, KNNImputer
-from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, RandomForestClassifier, VotingClassifier
-from sklearn.metrics import confusion_matrix, precision_recall_curve, roc_curve
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
-from sklearn.manifold import LocallyLinearEmbedding, Isomap, TSNE
 from datetime import datetime
 import csv
 
@@ -47,7 +31,7 @@ import csv
 from sklearnex import patch_sklearn
 patch_sklearn()#optimizacion intel cpus
 
-from sklearn.svm import LinearSVC, NuSVC, LinearSVR, NuSVR, SVC
+from sklearn.svm import SVC
 from sklearn.decomposition import PCA
 from load_model import returnPipeline
 
@@ -119,10 +103,7 @@ def lecturaTags(path_tags:str):
 class OptimalPCA(TransformerMixin, BaseEstimator):
     '''
     Esta clase nos calcula el numero de componentes del PCA de acuerdo
-    a los datos insertados, queremos considerar los componentes que nos da una cierta varianza explicada.
-    Es importante no seleccionar una varianza explicada objetivo no muy alta, porque perderíamos generalización
-    en nuestro modelo. Se han considerado valores mayores a 0.95 y aunque en ciertas etapas daba buenos resultados,
-    del orden de 0.64 de accuracy, proporcionaba sobreajuste y en el conjunto de test bajaba su accuracy a 0.6.
+    a los datos insertados, queremos considerar los componentes que nos da una cierta varianza explicada acumulada.
 
     Mantiendo el target_variance en 0.9 se han obtenido los mejores resultados.
 
@@ -147,7 +128,7 @@ class OptimalPCA(TransformerMixin, BaseEstimator):
 
 def normalizing_and_reducing()->Pipeline:
     '''
-    Normali
+    Normalizar y aplicar filtro de varianza
     '''
     filters_features = []
     # Normalizado
@@ -164,7 +145,7 @@ def normalizing_and_reducing()->Pipeline:
 # Función para aumentar caracteristicas
 def log_aumentation(X):
     """
-    Realiza aumento de características
+    Realiza aumento de características aplicando el logaritmo
 
     Parametros:
     - data: numpy array o pandas DataFrame, el conjunto de datos original.
@@ -183,7 +164,7 @@ def log_aumentation(X):
 # Función para aumentar caracteristicas
 def cubed_aumentation(X):
     """
-    Realiza aumento de características
+    Realiza aumento de características elevando al cubo
 
     Parametros:
     - data: numpy array o pandas DataFrame, el conjunto de datos original.
@@ -200,7 +181,7 @@ def cubed_aumentation(X):
 # Función para aumentar caracteristicas
 def sqrt_aumentation(X):
     """
-    Realiza aumento de características
+    Realiza aumento de características usando raiz cuadrada
 
     Parametros:
     - data: numpy array o pandas DataFrame, el conjunto de datos original.
@@ -218,7 +199,7 @@ def sqrt_aumentation(X):
 # Función para aumentar caracteristicas
 def bin_aumentation(X):
     """
-    Realiza aumento de características
+    Realiza aumento de características con binning
 
     Parametros:
     - data: numpy array o pandas DataFrame, el conjunto de datos original.
